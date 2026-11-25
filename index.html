@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Fluvana · YouTube টেস্ট</title>
+<link href="https://fonts.googleapis.com/css2?family=Hind+Siliguri:wght@400;600;700&family=Poppins:wght@600;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:linear-gradient(160deg,#CFDDFF,#EAF1FF 40%,#DDF7E8);color:#0B1530;font:15px/1.5 'Hind Siliguri',system-ui,sans-serif;min-height:100vh}
+.wrap{max-width:480px;margin:0 auto;padding:18px 14px 40px;display:flex;flex-direction:column;gap:12px}
+h1{margin:0;font-size:21px}
+.sub{font-size:13px;color:#56668A}
+.card{background:rgba(255,255,255,.75);border:1px solid rgba(255,255,255,.9);border-radius:20px;padding:12px;box-shadow:0 10px 30px rgba(30,64,175,.10)}
+#stage{position:relative;aspect-ratio:16/9;border-radius:16px;overflow:hidden;background:#000}
+#stage.fs{border-radius:0}
+#player{position:absolute;inset:0;width:100%;height:100%}
+#cap{position:absolute;left:8%;right:8%;bottom:10px;text-align:center;color:#fff;background:rgba(0,0,0,.6);border-radius:8px;padding:3px 8px;font-size:14px;display:none;pointer-events:none}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+button,input{font:inherit}
+button{min-height:44px;padding:0 12px;border-radius:12px;border:0;background:rgba(11,21,48,.07);color:#0B1530;font-weight:700;cursor:pointer}
+button.on{background:#0F1E4A;color:#fff}
+button.go{background:linear-gradient(135deg,#22C55E,#16A34A);color:#fff}
+input{min-height:44px;border-radius:12px;border:1px solid #C9D3E6;padding:0 12px;font-size:16px;flex:1;background:#fff}
+.time{font:700 14px Poppins,sans-serif;color:#56668A}
+.line{display:flex;gap:8px;align-items:center;padding:7px 9px;border-radius:12px;background:rgba(11,21,48,.05);margin-top:6px}
+.line b{font:700 12px Poppins,sans-serif;min-width:44px}
+.line.cur{background:#ECFDF3;outline:2px solid #22C55E}
+.note{font-size:12.5px;color:#56668A;line-height:1.55}
+.status{font-size:13px;font-weight:700;color:#15803D}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div><h1>YouTube অ্যাপের ভেতরে · টেস্ট</h1><div class="sub">আসল ভিডিও: Volka English · comprehensible input ভ্লগ</div></div>
+
+  <div class="card" style="padding:8px">
+    <div id="stage"><div id="player"></div><div id="cap"></div></div>
+  </div>
+
+  <div class="card">
+    <div class="row" style="justify-content:space-between"><span class="time" id="tm">0:00 / 0:00</span><span class="status" id="st">লোড হচ্ছে…</span></div>
+    <div class="row" style="margin-top:8px">
+      <button id="b10">−১০</button><button id="bp" class="go">▶ চালাও</button><button id="f10">+১০</button>
+      <button id="bfs">⛶ পুরো স্ক্রিন</button>
+    </div>
+    <div class="row" style="margin-top:8px" id="spd"></div>
+    <div class="row" style="margin-top:8px">
+      <button id="ba">A থেকে</button><button id="bb">B পর্যন্ত</button><button id="bloop">↻ A–B লুপ বন্ধ</button>
+      <button id="bcc">CC ইউটিউবের ক্যাপশন</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700">⏱ সময়সহ লাইন (ট্রান্সক্রিপ্টের মতো)</div>
+    <div class="note">যা শুনলে লিখে “এই সময়ে যোগ করো” চাপো। লাইনে চাপলে ভিডিও সেখানে যাবে, আর চলার সময় লাইনটা নিচে সাবটাইটেলের মতো দেখাবে। আসল অ্যাপে এই লাইনগুলো আসবে আমাদের সার্ভারের ট্রান্সক্রিপ্ট থেকে।</div>
+    <div class="row" style="margin-top:8px"><input id="txt" placeholder="যেমন: I’m going to make some coffee."><button id="add" class="go">যোগ করো</button></div>
+    <div id="lines"></div>
+  </div>
+
+  <div class="card">
+    <div style="font-weight:700">অন্য ভিডিও চালাও</div>
+    <div class="row" style="margin-top:8px"><input id="url" placeholder="ইউটিউব লিংক বা ভিডিও আইডি"><button id="load">চালাও</button></div>
+  </div>
+
+  <div class="note">এটা চলবে যখন ফাইলটা ফোনের Chrome-এ বা কম্পিউটারের ব্রাউজারে খুলবে। claude.ai-এর প্রিভিউর ভেতরে বাইরের ভিডিও ব্লক থাকে, তাই সেখানে কালো দেখাতে পারে। এই ফাইলে ব্যবহার হয়েছে ইউটিউবের নিজস্ব IFrame Player API। আসল অ্যান্ড্রয়েড অ্যাপে একই জিনিস করবে android-youtube-player লাইব্রেরি।</div>
+</div>
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+{
+  let P = null, ready = false, A = null, Bp = null, loop = false, cc = false, lines = [];
+  const $ = id => document.getElementById(id);
+  const bnN = s => String(s).replace(/\d/g, d => '০১২৩৪৫৬৭৮৯'[d]);
+  const fmt = t => { t = Math.max(0, Math.floor(t || 0)); return bnN(Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0')); };
+  const idOf = s => { s = (s || '').trim(); const m = s.match(/(?:v=|youtu\.be\/|shorts\/|embed\/)([\w-]{11})/); return m ? m[1] : (/^[\w-]{11}$/.test(s) ? s : null); };
+  window.onYouTubeIframeAPIReady = () => {
+    P = new YT.Player('player', { videoId: 'ofPPsEXbEKM', playerVars: { playsinline: 1, rel: 0, modestbranding: 1, cc_load_policy: 0 },
+      events: { onReady: () => { ready = true; $('st').textContent = 'তৈরি ✓'; }, onStateChange: e => { $('bp').textContent = e.data === 1 ? '❚❚ থামাও' : '▶ চালাও'; }, onError: () => { $('st').textContent = 'এই ভিডিও এম্বেড করা যায় না'; } } });
+  };
+  setTimeout(() => { if (!ready) $('st').textContent = 'ইউটিউব লোড হয়নি · ব্রাউজারে খোলো'; }, 8000);
+  $('bp').onclick = () => { if (!ready) return; P.getPlayerState() === 1 ? P.pauseVideo() : P.playVideo(); };
+  $('b10').onclick = () => ready && P.seekTo(Math.max(0, P.getCurrentTime() - 10), true);
+  $('f10').onclick = () => ready && P.seekTo(P.getCurrentTime() + 10, true);
+  [0.75, 1, 1.25, 1.5].forEach(v => { const b = document.createElement('button'); b.textContent = v + '×'; if (v === 1) b.className = 'on'; b.onclick = () => { if (!ready) return; P.setPlaybackRate(v); [...$('spd').children].forEach(x => x.className = ''); b.className = 'on'; }; $('spd').appendChild(b); });
+  $('ba').onclick = () => { if (!ready) return; A = P.getCurrentTime(); $('ba').textContent = 'A ' + fmt(A); };
+  $('bb').onclick = () => { if (!ready) return; Bp = P.getCurrentTime(); $('bb').textContent = 'B ' + fmt(Bp); };
+  $('bloop').onclick = () => { loop = !loop && A != null && Bp != null && Bp > A; $('bloop').className = loop ? 'on' : ''; $('bloop').textContent = loop ? '↻ A–B লুপ চালু' : '↻ A–B লুপ বন্ধ'; };
+  $('bcc').onclick = () => { if (!ready) return; cc = !cc; try { cc ? P.loadModule('captions') : P.unloadModule('captions'); if (cc) P.setOption('captions', 'track', { languageCode: 'en' }); } catch (e) {} $('bcc').className = cc ? 'on' : ''; };
+  $('bfs').onclick = async () => { const s = $('stage'); try { if (document.fullscreenElement) { await document.exitFullscreen(); return; } await (s.requestFullscreen ? s.requestFullscreen() : s.webkitRequestFullscreen()); try { await screen.orientation.lock('landscape'); } catch (e) {} } catch (e) { $('st').textContent = 'পুরো স্ক্রিনের অনুমতি পাওয়া যায়নি'; } };
+  document.addEventListener('fullscreenchange', () => { $('stage').classList.toggle('fs', !!document.fullscreenElement); $('bfs').textContent = document.fullscreenElement ? '✕ ছোট করো' : '⛶ পুরো স্ক্রিন'; });
+  const render = () => { const t = ready ? P.getCurrentTime() : 0; let cur = -1; lines.forEach((l, i) => { if (t >= l.t) cur = i; }); $('lines').innerHTML = ''; lines.forEach((l, i) => { const d = document.createElement('div'); d.className = 'line' + (i === cur ? ' cur' : ''); const b = document.createElement('b'); b.textContent = fmt(l.t); const s = document.createElement('span'); s.textContent = l.x; d.append(b, s); d.onclick = () => ready && P.seekTo(l.t, true); $('lines').appendChild(d); }); const c = $('cap'); if (cur >= 0 && t - lines[cur].t < 6) { c.textContent = lines[cur].x; c.style.display = 'block'; } else c.style.display = 'none'; };
+  $('add').onclick = () => { const x = $('txt').value.trim(); if (!x || !ready) return; lines.push({ t: Math.max(0, P.getCurrentTime() - 2), x }); lines.sort((a, b) => a.t - b.t); $('txt').value = ''; render(); };
+  $('load').onclick = () => { const id = idOf($('url').value); if (!id) { $('st').textContent = 'লিংকটা ঠিক নেই'; return; } if (ready) { P.loadVideoById(id); lines = []; render(); $('st').textContent = 'নতুন ভিডিও ✓'; } };
+  setInterval(() => { if (!ready) return; const t = P.getCurrentTime(), d = P.getDuration(); $('tm').textContent = fmt(t) + ' / ' + fmt(d); if (loop && t >= Bp) P.seekTo(A, true); render(); }, 400);
+}
+</script>
+</body>
+</html>
