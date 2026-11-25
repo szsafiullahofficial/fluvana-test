@@ -28,6 +28,14 @@ input{min-height:44px;border-radius:12px;border:1px solid #C9D3E6;padding:0 12px
 .line.cur{background:#ECFDF3;outline:2px solid #22C55E}
 .note{font-size:12.5px;color:#56668A;line-height:1.55}
 .status{font-size:13px;font-weight:700;color:#15803D}
+.lib{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.it{display:flex;gap:10px;align-items:center;padding:8px;border-radius:14px;background:rgba(11,21,48,.05);cursor:pointer}
+.it img{width:96px;height:54px;object-fit:cover;border-radius:9px;background:#ccd;flex:none}
+.it .t{font-weight:700;font-size:14px;line-height:1.3}
+.it .m{font-size:12px;color:#56668A}
+.it .x{min-height:34px;padding:0 9px;font-size:12px;background:transparent;color:#B91C1C;flex:none}
+.sublist{margin:-2px 0 4px 18px;display:flex;flex-direction:column;gap:6px}
+.sublist .it img{width:72px;height:40px}
 </style>
 </head>
 <body>
@@ -59,8 +67,11 @@ input{min-height:44px;border-radius:12px;border:1px solid #C9D3E6;padding:0 12px
   </div>
 
   <div class="card">
-    <div style="font-weight:700">অন্য ভিডিও চালাও</div>
-    <div class="row" style="margin-top:8px"><input id="url" placeholder="ইউটিউব লিংক বা ভিডিও আইডি"><button id="load">চালাও</button></div>
+    <div style="font-weight:700">＋ লিংক দিয়ে যোগ করো (আসল টেস্ট)</div>
+    <div class="note">ইউটিউব ভিডিও বা পুরো প্লেলিস্টের লিংক পেস্ট করো। আসল নাম আর ছবি আসবে, প্লেলিস্ট একটা ফোল্ডার হবে। যোগ করা জিনিস এই ফোনে সেভ থাকে, পেজ বন্ধ করে খুললেও থাকবে।</div>
+    <div class="row" style="margin-top:8px"><input id="url" placeholder="https://youtu.be/… বা …playlist?list=…"><button id="load" class="go">যোগ করো</button></div>
+    <div class="status" id="lst"></div>
+    <div class="lib" id="lib"></div>
   </div>
 
   <div class="note">এটা চলবে যখন ফাইলটা ফোনের Chrome-এ বা কম্পিউটারের ব্রাউজারে খুলবে। claude.ai-এর প্রিভিউর ভেতরে বাইরের ভিডিও ব্লক থাকে, তাই সেখানে কালো দেখাতে পারে। এই ফাইলে ব্যবহার হয়েছে ইউটিউবের নিজস্ব IFrame Player API। আসল অ্যান্ড্রয়েড অ্যাপে একই জিনিস করবে android-youtube-player লাইব্রেরি।</div>
@@ -90,7 +101,55 @@ input{min-height:44px;border-radius:12px;border:1px solid #C9D3E6;padding:0 12px
   document.addEventListener('fullscreenchange', () => { $('stage').classList.toggle('fs', !!document.fullscreenElement); $('bfs').textContent = document.fullscreenElement ? '✕ ছোট করো' : '⛶ পুরো স্ক্রিন'; });
   const render = () => { const t = ready ? P.getCurrentTime() : 0; let cur = -1; lines.forEach((l, i) => { if (t >= l.t) cur = i; }); $('lines').innerHTML = ''; lines.forEach((l, i) => { const d = document.createElement('div'); d.className = 'line' + (i === cur ? ' cur' : ''); const b = document.createElement('b'); b.textContent = fmt(l.t); const s = document.createElement('span'); s.textContent = l.x; d.append(b, s); d.onclick = () => ready && P.seekTo(l.t, true); $('lines').appendChild(d); }); const c = $('cap'); if (cur >= 0 && t - lines[cur].t < 6) { c.textContent = lines[cur].x; c.style.display = 'block'; } else c.style.display = 'none'; };
   $('add').onclick = () => { const x = $('txt').value.trim(); if (!x || !ready) return; lines.push({ t: Math.max(0, P.getCurrentTime() - 2), x }); lines.sort((a, b) => a.t - b.t); $('txt').value = ''; render(); };
-  $('load').onclick = () => { const id = idOf($('url').value); if (!id) { $('st').textContent = 'লিংকটা ঠিক নেই'; return; } if (ready) { P.loadVideoById(id); lines = []; render(); $('st').textContent = 'নতুন ভিডিও ✓'; } };
+  // ---- link library ----
+  const KEY = 'fluvana-lib-v1';
+  let lib = []; try { lib = JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(lib)); } catch (e) {} };
+  const plOf = s => { const m = (s || '').match(/[?&]list=([\w-]+)/); return m ? m[1] : null; };
+  const thumb = id => 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg';
+  const msg = t => { $('lst').textContent = t; };
+  const getTitle = async id => { try { const r = await fetch('https://noembed.com/embed?url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + id)); const j = await r.json(); return j.title ? [j.title, j.author_name || ''] : null; } catch (e) { return null; } };
+  const playVid = id => { if (!ready) return; P.loadVideoById(id); lines = []; render(); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  const drawLib = () => { const box = $('lib'); box.innerHTML = ''; lib.forEach((it, i) => {
+      const d = document.createElement('div'); d.className = 'it';
+      const im = document.createElement('img'); im.src = it.th || ''; im.alt = '';
+      const tx = document.createElement('div'); tx.style.flex = '1';
+      const t = document.createElement('div'); t.className = 't'; t.textContent = (it.kind === 'pl' ? '📁 ' : '▶ ') + (it.title || 'নাম আসছে…');
+      const m = document.createElement('div'); m.className = 'm'; m.textContent = it.kind === 'pl' ? ('প্লেলিস্ট · ' + bnN((it.ids || []).length) + 'টা ভিডিও · চাপলে খুলবে') : (it.by || 'ভিডিও');
+      tx.append(t, m);
+      const x = document.createElement('button'); x.className = 'x'; x.textContent = '🗑'; x.onclick = e => { e.stopPropagation(); lib.splice(i, 1); save(); drawLib(); };
+      d.append(im, tx, x);
+      d.onclick = () => { if (it.kind === 'pl') { it.open = !it.open; drawLib(); } else playVid(it.id); };
+      box.appendChild(d);
+      if (it.kind === 'pl' && it.open) { const sub = document.createElement('div'); sub.className = 'sublist';
+        (it.ids || []).slice(0, 50).forEach((vid, k) => { const r = document.createElement('div'); r.className = 'it'; const ii = document.createElement('img'); ii.src = thumb(vid); ii.alt = ''; const tt = document.createElement('div'); tt.className = 't'; tt.style.flex = '1'; tt.textContent = bnN(k + 1) + '. ' + ((it.titles || {})[vid] || 'ভিডিও ' + bnN(k + 1)); r.append(ii, tt); r.onclick = () => { if (!ready) return; P.loadPlaylist({ list: it.list, index: k }); window.scrollTo({ top: 0, behavior: 'smooth' }); }; sub.appendChild(r); });
+        if (!(it.ids || []).length) { const n = document.createElement('div'); n.className = 'note'; n.textContent = 'ভিডিওর তালিকা পাওয়া যায়নি।'; sub.appendChild(n); }
+        box.appendChild(sub); } }); };
+  const fillTitles = async it => { for (const vid of (it.ids || []).slice(0, 20)) { if ((it.titles || {})[vid]) continue; const r = await getTitle(vid); if (r) { it.titles = it.titles || {}; it.titles[vid] = r[0]; save(); if (it.open) drawLib(); } } };
+  $('load').onclick = async () => {
+    const raw = $('url').value.trim(); const list = plOf(raw), id = idOf(raw);
+    if (!list && !id) { msg('❌ এটা ইউটিউবের ভিডিও বা প্লেলিস্ট লিংক মনে হচ্ছে না'); return; }
+    if (!ready) { msg('প্লেয়ার এখনো তৈরি হয়নি, একটু পরে চেষ্টা করো'); return; }
+    $('url').value = '';
+    if (list && (!id || /playlist/.test(raw))) {
+      if (lib.some(x => x.list === list)) { msg('এই প্লেলিস্ট আগেই যোগ করা আছে'); return; }
+      msg('⏳ প্লেলিস্ট পড়ছি…');
+      P.cuePlaylist({ list, listType: 'playlist' });
+      let tries = 0; const wait = setInterval(async () => { tries++; const ids = (P.getPlaylist && P.getPlaylist()) || [];
+        if (ids.length || tries > 20) { clearInterval(wait);
+          if (!ids.length) { msg('❌ প্লেলিস্ট খোলা গেল না · প্রাইভেট হলে চলবে না, Public বা Unlisted লাগবে'); return; }
+          let title = 'প্লেলিস্ট'; try { const d = P.getVideoData && P.getVideoData(); if (d && d.author) title = d.author + '-এর প্লেলিস্ট'; } catch (e) {}
+          const it = { kind: 'pl', list, ids, th: thumb(ids[0]), title, open: true }; lib.unshift(it); save(); drawLib();
+          msg('✓ প্লেলিস্ট ফোল্ডার হিসেবে যোগ হয়েছে · ' + bnN(ids.length) + 'টা ভিডিও'); fillTitles(it); } }, 400);
+      return;
+    }
+    if (lib.some(x => x.id === id)) { msg('এই ভিডিও আগেই যোগ করা আছে'); return; }
+    const it = { kind: 'vid', id, th: thumb(id), title: '', by: '' }; lib.unshift(it); save(); drawLib(); msg('⏳ নাম আনছি…');
+    const r = await getTitle(id);
+    if (r) { it.title = r[0]; it.by = r[1]; save(); drawLib(); msg('✓ যোগ হয়েছে · চাপলে ওপরে চলবে'); }
+    else { it.title = 'ভিডিও (' + id + ')'; save(); drawLib(); msg('✓ যোগ হয়েছে · নামটা আনা যায়নি, চালালে ঠিক হবে'); }
+  };
+  drawLib();
   setInterval(() => { if (!ready) return; const t = P.getCurrentTime(), d = P.getDuration(); $('tm').textContent = fmt(t) + ' / ' + fmt(d); if (loop && t >= Bp) P.seekTo(A, true); render(); }, 400);
 }
 </script>
